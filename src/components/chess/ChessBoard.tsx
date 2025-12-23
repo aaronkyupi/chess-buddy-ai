@@ -8,6 +8,7 @@ interface ChessBoardProps {
   selectedSquare: Square | null;
   legalMoves: Square[];
   lastMove: { from: Square; to: Square } | null;
+  animatingMove?: { from: Square; to: Square } | null;
   onSquareClick: (square: Square) => void;
   flipped?: boolean;
 }
@@ -17,6 +18,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   selectedSquare,
   legalMoves,
   lastMove,
+  animatingMove,
   onSquareClick,
   flipped = false,
 }) => {
@@ -46,6 +48,25 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     ranks.reverse();
   }
 
+  // Calculate animation offset for a piece moving to this square
+  const getAnimationOffset = (square: Square) => {
+    if (!animatingMove || animatingMove.to !== square) return null;
+    
+    const fromFile = animatingMove.from.charCodeAt(0) - 97;
+    const fromRank = parseInt(animatingMove.from[1]) - 1;
+    const toFile = animatingMove.to.charCodeAt(0) - 97;
+    const toRank = parseInt(animatingMove.to[1]) - 1;
+    
+    const fileDiff = fromFile - toFile;
+    const rankDiff = toRank - fromRank; // Inverted because board renders top-down
+    
+    // Convert to percentage of square size
+    return {
+      x: fileDiff * 100,
+      y: rankDiff * 100,
+    };
+  };
+
   return (
     <motion.div
       className="board-shadow rounded-lg overflow-hidden"
@@ -65,6 +86,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             const isLegalMove = legalMoves.includes(square);
             const isLastMove = lastMove?.from === square || lastMove?.to === square;
             const isCheck = kingSquare === square;
+            const animationOffset = getAnimationOffset(square);
 
             return (
               <ChessSquare
@@ -81,6 +103,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   file: rankIndex === 7,
                   rank: fileIndex === 0,
                 }}
+                animationOffset={animationOffset}
               />
             );
           })

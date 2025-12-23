@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { RotateCcw, Flag, Settings2, Play, Pause } from 'lucide-react';
+import { RotateCcw, Flag, Settings2, Play, Pause, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -21,6 +21,10 @@ interface GameControlsProps {
   isPaused: boolean;
   onTogglePause: () => void;
   gameInProgress: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -33,6 +37,10 @@ export const GameControls: React.FC<GameControlsProps> = ({
   isPaused,
   onTogglePause,
   gameInProgress,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }) => {
   return (
     <div className="space-y-4">
@@ -90,6 +98,34 @@ export const GameControls: React.FC<GameControlsProps> = ({
       </div>
 
       <div className="flex flex-col gap-2">
+        {/* Undo/Redo buttons */}
+        {gameInProgress && (
+          <div className="flex gap-2">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1">
+              <Button
+                onClick={onUndo}
+                variant="outline"
+                className="w-full"
+                disabled={!canUndo}
+              >
+                <Undo2 className="w-4 h-4 mr-2" />
+                Undo
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1">
+              <Button
+                onClick={onRedo}
+                variant="outline"
+                className="w-full"
+                disabled={!canRedo}
+              >
+                <Redo2 className="w-4 h-4 mr-2" />
+                Redo
+              </Button>
+            </motion.div>
+          </div>
+        )}
+
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
             onClick={onNewGame}
