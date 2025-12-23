@@ -11,8 +11,10 @@ import { GameOverDialog } from './GameOverDialog';
 import { getBestMove, Difficulty } from '@/lib/chess/engine';
 import { identifyOpening } from '@/lib/chess/openings';
 import { toast } from 'sonner';
+import { useChessSounds } from '@/hooks/use-chess-sounds';
 
 export const ChessGame: React.FC = () => {
+  const { playSound } = useChessSounds();
   const [game, setGame] = useState(new Chess());
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
@@ -124,27 +126,38 @@ export const ChessGame: React.FC = () => {
           toast.info(`Opening: ${opening}`);
         }
 
-        // Check game end conditions
+        // Check game end conditions and play appropriate sounds
         if (gameCopy.isCheckmate()) {
           setGameOver({
             result: 'checkmate',
             winner: gameCopy.turn() === 'w' ? 'black' : 'white',
           });
+          playSound('gameOver');
         } else if (gameCopy.isStalemate()) {
           setGameOver({ result: 'stalemate', winner: 'draw' });
+          playSound('gameOver');
         } else if (gameCopy.isDraw()) {
           setGameOver({ result: 'draw', winner: 'draw' });
+          playSound('gameOver');
         } else if (gameCopy.inCheck()) {
+          playSound('check');
           toast.warning('Check!');
+        } else if (move.flags.includes('k') || move.flags.includes('q')) {
+          // Castling
+          playSound('castle');
+        } else if (move.captured) {
+          playSound('capture');
+        } else {
+          playSound('move');
         }
 
         return true;
       }
     } catch {
-      // Invalid move
+      playSound('illegal');
     }
     return false;
-  }, [game, moveHistory, currentOpening]);
+  }, [game, moveHistory, currentOpening, playSound]);
 
   const handleSquareClick = useCallback((square: Square) => {
     if (game.turn() !== 'w' || gameOver.result) return;
@@ -205,12 +218,14 @@ export const ChessGame: React.FC = () => {
     setGameStarted(false);
     setIsPaused(false);
     setGameOver({ result: null, winner: null });
+    playSound('gameStart');
     toast.success('New game started!');
-  }, [timeControl]);
+  }, [timeControl, playSound]);
 
   const handleResign = useCallback(() => {
     setGameOver({ result: 'resignation', winner: 'black' });
-  }, []);
+    playSound('gameOver');
+  }, [playSound]);
 
   const handleTimeControlChange = useCallback((time: number) => {
     setTimeControl(time);
