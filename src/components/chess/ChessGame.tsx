@@ -19,11 +19,16 @@ export const ChessGame: React.FC = () => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
+  const [animatingMove, setAnimatingMove] = useState<{ from: Square; to: Square } | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [moveNotations, setMoveNotations] = useState<string[]>([]);
   const [capturedByWhite, setCapturedByWhite] = useState<string[]>([]);
   const [capturedByBlack, setCapturedByBlack] = useState<string[]>([]);
   const [currentOpening, setCurrentOpening] = useState<string | null>(null);
+  
+  // Undo/Redo state - store FEN positions
+  const [positionHistory, setPositionHistory] = useState<string[]>([new Chess().fen()]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   
   // Timer state
   const [whiteTime, setWhiteTime] = useState(600);
@@ -94,12 +99,18 @@ export const ChessGame: React.FC = () => {
     }
   }, [game.fen(), difficulty, promotionPending, gameStarted]);
 
-  const makeMove = useCallback((from: Square, to: Square, promotion?: 'q' | 'r' | 'b' | 'n') => {
+  const makeMove = useCallback((from: Square, to: Square, promotion?: 'q' | 'r' | 'b' | 'n', skipAnimation?: boolean) => {
     try {
       const gameCopy = new Chess(game.fen());
       const move = gameCopy.move({ from, to, promotion });
       
       if (move) {
+        // Set animating move for visual effect
+        if (!skipAnimation) {
+          setAnimatingMove({ from, to });
+          setTimeout(() => setAnimatingMove(null), 200);
+        }
+
         // Track captured pieces
         if (move.captured) {
           if (move.color === 'w') {
@@ -118,6 +129,11 @@ export const ChessGame: React.FC = () => {
         const newHistory = [...moveHistory, `${from}${to}${promotion || ''}`];
         setMoveHistory(newHistory);
         setMoveNotations((prev) => [...prev, move.san]);
+        
+        // Update position history for undo/redo (clear future positions when making new move)
+        const newPositionHistory = [...positionHistory.slice(0, historyIndex + 1), gameCopy.fen()];
+        setPositionHistory(newPositionHistory);
+        setHistoryIndex(newPositionHistory.length - 1);
         
         // Identify opening
         const opening = identifyOpening(newHistory);
@@ -157,7 +173,43 @@ export const ChessGame: React.FC = () => {
       playSound('illegal');
     }
     return false;
-  }, [game, moveHistory, currentOpening, playSound]);
+  }, [game, moveHistory, currentOpening, playSound, positionHistory, historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    // Undo needs to go back 2 moves (player's move + AI's response)
+    const newIndex = Math.max(0, historyIndex - 2);
+    if (newIndex !== historyIndex) {
+      const fen = positionHistory[newIndex];
+      setGame(new Chess(fen));
+      setHistoryIndex(newIndex);
+      setSelectedSquare(null);
+      setLegalMoves([]);
+      setLastMove(null);
+      // Trim move notations accordingly
+      const movesToRemove = historyIndex - newIndex;
+      setMoveNotations((prev) => prev.slice(0, prev.length - movesToRemove));
+      setMoveHistory((prev) => prev.slice(0, prev.length - movesToRemove));
+      playSound('move');
+      toast.info('Move undone');
+    }
+  }, [historyIndex, positionHistory, playSound]);
+
+  const handleRedo = useCallback(() => {
+    // Redo 2 moves at a time
+    const newIndex = Math.min(positionHistory.length - 1, historyIndex + 2);
+    if (newIndex !== historyIndex) {
+      const fen = positionHistory[newIndex];
+      setGame(new Chess(fen));
+      setHistoryIndex(newIndex);
+      setSelectedSquare(null);
+      setLegalMoves([]);
+      playSound('move');
+      toast.info('Move redone');
+    }
+  }, [historyIndex, positionHistory, playSound]);
+
+  const canUndo = historyIndex > 0 && gameStarted && !gameOver.result;
+  const canRedo = historyIndex < positionHistory.length - 1 && !gameOver.result;
 
   const handleSquareClick = useCallback((square: Square) => {
     if (game.turn() !== 'w' || gameOver.result) return;
@@ -204,10 +256,12 @@ export const ChessGame: React.FC = () => {
   }, [promotionPending, makeMove]);
 
   const handleNewGame = useCallback(() => {
+    const initialFen = new Chess().fen();
     setGame(new Chess());
     setSelectedSquare(null);
     setLegalMoves([]);
     setLastMove(null);
+    setAnimatingMove(null);
     setMoveHistory([]);
     setMoveNotations([]);
     setCapturedByWhite([]);
@@ -218,6 +272,8 @@ export const ChessGame: React.FC = () => {
     setGameStarted(false);
     setIsPaused(false);
     setGameOver({ result: null, winner: null });
+    setPositionHistory([initialFen]);
+    setHistoryIndex(0);
     playSound('gameStart');
     toast.success('New game started!');
   }, [timeControl, playSound]);
@@ -285,6 +341,7 @@ export const ChessGame: React.FC = () => {
               selectedSquare={selectedSquare}
               legalMoves={legalMoves}
               lastMove={lastMove}
+              animatingMove={animatingMove}
               onSquareClick={handleSquareClick}
             />
             
@@ -320,6 +377,10 @@ export const ChessGame: React.FC = () => {
               isPaused={isPaused}
               onTogglePause={() => setIsPaused(!isPaused)}
               gameInProgress={gameStarted && !gameOver.result}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
             
             <MoveHistory moves={moveNotations} currentOpening={currentOpening} />

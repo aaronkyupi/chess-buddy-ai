@@ -13,6 +13,7 @@ interface ChessSquareProps {
   isCheck: boolean;
   onClick: () => void;
   showCoordinates: { file: boolean; rank: boolean };
+  animationOffset?: { x: number; y: number } | null;
 }
 
 export const ChessSquare: React.FC<ChessSquareProps> = ({
@@ -25,6 +26,7 @@ export const ChessSquare: React.FC<ChessSquareProps> = ({
   isCheck,
   onClick,
   showCoordinates,
+  animationOffset,
 }) => {
   const PieceComponent = piece ? getPieceComponent(piece.color, piece.type) : null;
   const file = square[0];
@@ -62,13 +64,25 @@ export const ChessSquare: React.FC<ChessSquareProps> = ({
         </span>
       )}
 
-      {/* Piece */}
+      {/* Piece with move animation */}
       {PieceComponent && (
         <motion.div
           className="w-[85%] h-[85%] piece-shadow"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.15 }}
+          initial={animationOffset ? { 
+            x: `${animationOffset.x}%`, 
+            y: `${animationOffset.y}%`,
+            scale: 1.05
+          } : { scale: 0.8, opacity: 0 }}
+          animate={{ 
+            x: 0, 
+            y: 0, 
+            scale: 1, 
+            opacity: 1 
+          }}
+          transition={{ 
+            duration: animationOffset ? 0.2 : 0.15,
+            ease: animationOffset ? 'easeOut' : 'easeInOut'
+          }}
         >
           <PieceComponent className="w-full h-full" />
         </motion.div>
